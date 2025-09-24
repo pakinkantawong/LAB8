@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Wallboard - Real-time Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #e0eafc 0%, #3498db 100%);
+            color: #222;
+        }
+
+        body.dark-mode {
+            background: linear-gradient(135deg, #232526 0%, #0f2027 100%);
+            color: #e0eafc;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .widget {
+            background: rgba(255, 255, 255, 0.85);
+            padding: 28px 22px;
+            border-radius: 18px;
+            box-shadow: 0 4px 24px rgba(52, 152, 219, 0.12), 0 1.5px 6px rgba(44, 62, 80, 0.08);
+            border: none;
+            transition: box-shadow 0.2s;
+        }
+
+        body.dark-mode .widget {
+            background: rgba(44, 62, 80, 0.92);
+            color: #e0eafc;
+            box-shadow: 0 4px 24px rgba(44, 62, 80, 0.18), 0 1.5px 6px rgba(44, 62, 80, 0.12);
+        }
+
+        .widget:hover {
+            box-shadow: 0 8px 32px rgba(52, 152, 219, 0.18), 0 2px 8px rgba(44, 62, 80, 0.12);
+        }
+
+        .widget h3 {
+            margin: 0 0 18px 0;
+            font-size: 1.25em;
+            text-align: center;
+            color: #3498db;
+        }
+
+        body.dark-mode .widget h3 {
+            color: #6dd5fa;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            color: #2980b9;
+            font-size: 2.2em;
+            margin-bottom: 8px;
+        }
+
+        body.dark-mode .header h1 {
+            color: #6dd5fa;
+        }
+
+        .clock {
+            font-size: 2.2em;
+            text-align: center;
+            font-weight: bold;
+            margin: 22px 0;
+            color: #222;
+        }
+
+        body.dark-mode .clock {
+            color: #e0eafc;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-available {
+            background: #2ecc71;
+        }
+
+        .status-busy {
+            background: #e74c3c;
+        }
+
+        .status-break {
+            background: #f39c12;
+        }
+
+        .status-offline {
+            background: #95a5a6;
+        }
+
+        .agent-item {
+            background: rgba(52, 152, 219, 0.07);
+            padding: 12px 10px;
+            margin: 6px 0;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 4px rgba(52, 152, 219, 0.07);
+        }
+
+        body.dark-mode .agent-item {
+            background: rgba(52, 152, 219, 0.13);
+            color: #e0eafc;
+        }
+
+        .button {
+            background: linear-gradient(90deg, #3498db 0%, #6dd5fa 100%);
+            border: none;
+            color: white;
+            padding: 10px 22px;
+            border-radius: 24px;
+            cursor: pointer;
+            margin: 7px 4px;
+            font-size: 1em;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.08);
+            transition: background 0.3s, color 0.3s, box-shadow 0.2s;
+        }
+
+        body.dark-mode .button {
+            background: linear-gradient(90deg, #232526 0%, #6dd5fa 100%);
+            color: #e0eafc;
+        }
+
+        body.dark-mode .button:hover {
+            background: linear-gradient(90deg, #6dd5fa 0%, #232526 100%);
+            color: #232526;
+        }
+
+        .loading {
+            text-align: center;
+            opacity: 0.7;
+            font-style: italic;
+            color: #2980b9;
+        }
+
+        body.dark-mode .loading {
+            color: #6dd5fa;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-size: 1em;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+
+        body.dark-mode .error {
+            color: #e74c3c;
+        }
+
+        .websocket-status {
+            padding: 12px;
+            border-radius: 10px;
+            margin: 12px 0;
+            text-align: center;
+            font-size: 1.1em;
+        }
+
+        body.dark-mode .ws-connected {
+            background: rgba(46, 204, 113, 0.22);
+            color: #2ecc71;
+        }
+
+        body.dark-mode .ws-disconnected {
+            background: rgba(231, 76, 60, 0.22);
+            color: #e74c3c;
+        }
+
+        body.dark-mode .ws-connecting {
+            background: rgba(243, 156, 18, 0.22);
+            color: #f39c12;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                gap: 18px;
+            }
+
+            .widget {
+                padding: 18px 8px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 8px;
+            }
+
+            .dashboard {
+                gap: 10px;
+            }
+
+            .widget {
+                padding: 12px 2px;
+            }
+
+            .clock {
+                font-size: 1.3em;
+            }
+
+            .simulator-widget {
+            min-width: 320px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 2px 12px rgba(52,152,219,0.10);
+        }
+        @media (max-width: 900px) {
+            .simulator-widget {
+                max-width: 100%;
+                margin-top: 18px;
+            }
+        }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <div class="header widget">
+            <h1>🏢 Agent Wallboard Dashboard</h1>
+            <p>Real-time Monitoring System</p>
+            <div class="clock" id="liveClock">กำลังโหลดเวลา...</div>
+        </div>
+
+        <!-- Metrics Widget -->
+        <div class="widget">
+            <h3>📊 Agent Metrics</h3>
+            <div id="agentMetrics" class="loading">กำลังโหลดสถิติ...</div>
+        </div>
+
+        <!-- Weather Widget -->
+        <div class="widget">
+            <h3>🌤️ สภาพอากาศ</h3>
+            <div id="weatherInfo" class="loading">กำลังโหลด...</div>
+            <button class="button" onclick="refreshWeather()">🔄 รีเฟรช</button>
+        </div>
+
+        <!-- System Status -->
+        <div class="widget">
+            <h3>⚡ WebSocket Status</h3>
+            <div id="websocketStatus" class="websocket-status ws-disconnected">
+                🔴 ไม่ได้เชื่อมต่อ
+            </div>
+            <button class="button" onclick="connectWebSocket()">🔌 เชื่อมต่อ</button>
+            <button class="button" onclick="sendTestMessage()">💬 ทดสอบ</button>
+        </div>
+
+        <!-- Real-time Clock -->
+        <div class="widget">
+            <h3>🕒 เวลาจาก API</h3>
+            <div id="apiTime" class="loading">กำลังโหลด...</div>
+            <button class="button" onclick="refreshTime()">🔄 รีเฟรช</button>
+        </div>
+
+        <!-- Agents List -->
+        <div class="widget" style="grid-column: span 2;">
+            <h3>👥 Agent Status (Mock Data)</h3>
+            <div id="agentsList" class="loading">กำลังโหลดรายชื่อ agents...</div>
+            <button class="button" onclick="refreshAgents()">🔄 รีเฟรช Agents</button>
+            <button class="button" onclick="startAutoRefresh()">⏰ Auto Refresh</button>
+            <button class="button" onclick="stopAutoRefresh()">⏹️ หยุด Auto</button>
+        </div>
+    </div>
+
+    <!-- Agent Simulator Widget -->
+    <div class="widget simulator-widget" style="grid-column: span 2; margin-top: 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <h3 style="margin:0;display:flex;align-items:center;gap:8px;">🎭 <span style="color:#3498db;">Agent Status Simulator</span></h3>
+            <div>
+                <button class="button" onclick="startSimulator()" style="margin-right:8px;">▶️ เริ่ม Simulator</button>
+                <button class="button" onclick="stopSimulator()">⏹️ หยุด Simulator</button>
+            </div>
+        </div>
+        <p style="margin-bottom:18px; color:#666;">จำลองการเปลี่ยนสถานะแบบ real-time ของ agent เพื่อทดสอบ dashboard</p>
+        <div id="simulatorStatus" style="margin-bottom: 12px; font-size:1.1em; font-weight:500; color:#27ae60;">
+            📍 Simulator ยังไม่ทำงาน
+        </div>
+        <div id="lastStatusChange" style="font-size: 1em; color:#2980b9; background:rgba(52,152,219,0.07); border-radius:8px; padding:8px;">
+            รอการเปลี่ยนแปลง...
+        </div>
+    </div>
+        
+
+    <button id="toggleModeBtn" class="button" style="position:fixed; top:20px; right:20px; z-index:100;">
+        🌙 Dark Mode
+    </button>
+
+    <script>
+        console.log('🎨 [RENDERER] Real-time Dashboard โหลดแล้ว');
+
+        // Global variables
+        let websocket = null;
+        let autoRefreshInterval = null;
+        let clockInterval = null;
+
+        // Dark mode toggle
+        const toggleBtn = document.getElementById('toggleModeBtn');
+        let darkMode = false;
+        toggleBtn.addEventListener('click', () => {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode', darkMode);
+            toggleBtn.textContent = darkMode ? '☀️ Light Mode' : '🌙 Dark Mode';
+        });
+
+        // ===== WEBSOCKET FUNCTIONS =====
+
+        function connectWebSocket() {
+            try {
+                console.log('⚡ [RENDERER] เชื่อมต่อ WebSocket...');
+                updateWebSocketStatus('connecting', '🟡 กำลังเชื่อมต่อ...');
+
+                // เชื่อมต่อ WebSocket Echo Test
+                websocket = new WebSocket('wss://echo.websocket.org/');
+
+                websocket.onopen = function (event) {
+                    console.log('✅ [RENDERER] WebSocket เชื่อมต่อแล้ว');
+                    updateWebSocketStatus('connected', '🟢 เชื่อมต่อแล้ว');
+
+                    // ส่งข้อความต้อนรับ
+                    websocket.send(JSON.stringify({
+                        type: 'wallboard_connected',
+                        message: 'Agent Wallboard เชื่อมต่อแล้ว',
+                        timestamp: new Date().toISOString()
+                    }));
+                };
+
+                websocket.onmessage = function (event) {
+                    console.log('📨 [RENDERER] ได้รับข้อความ:', event.data);
+
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.log('📨 [RENDERER] Text message:', event.data);
+                    }
+                };
+
+                websocket.onclose = function (event) {
+                    console.log('🔴 [RENDERER] WebSocket ปิดการเชื่อมต่อ');
+                    updateWebSocketStatus('disconnected', '🔴 ไม่ได้เชื่อมต่อ');
+                    websocket = null;
+                };
+
+                websocket.onerror = function (error) {
+                    console.error('❌ [RENDERER] WebSocket error:', error);
+                    updateWebSocketStatus('disconnected', '❌ เกิดข้อผิดพลาด');
+                };
+
+            } catch (error) {
+                console.error('❌ [RENDERER] Error:', error);
+                updateWebSocketStatus('disconnected', '❌ เชื่อมต่อไม่ได้');
+            }
+        }
+
+        function sendTestMessage() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                const testMessage = {
+                    type: 'agent_status_update',
+                    agentId: 'AG001',
+                    newStatus: 'Available',
+                    timestamp: new Date().toISOString(),
+                    message: 'ทดสอบข้อความจาก Agent Wallboard'
+                };
+
+                console.log('💬 [RENDERER] ส่งข้อความทดสอบ...');
+                websocket.send(JSON.stringify(testMessage));
+            } else {
+                alert('❌ กรุณาเชื่อมต่อ WebSocket ก่อน');
+            }
+        }
+
+        function updateWebSocketStatus(status, message) {
+            const statusEl = document.getElementById('websocketStatus');
+            statusEl.className = `websocket-status ws-${status}`;
+            statusEl.textContent = message;
+        }
+
+        function handleWebSocketMessage(data) {
+            console.log('🔄 [RENDERER] ประมวลผลข้อความ:', data);
+
+            // จำลองการอัพเดท agent status แบบ real-time
+            if (data.type === 'agent_status_update') {
+                showNotification(`🔄 ${data.agentId} เปลี่ยนสถานะเป็น ${data.newStatus}`);
+            }
+        }
+
+        // ===== API FUNCTIONS =====
+
+        async function refreshTime() {
+            try {
+                console.log('🕒 [RENDERER] รีเฟรชเวลา...');
+                document.getElementById('apiTime').innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+                const timeData = await window.realtimeAPI.getWorldTime();
+
+                if (timeData.success) {
+                    document.getElementById('apiTime').innerHTML = `
+            <strong>🕒 ${timeData.formatted}</strong><br>
+            <small>Timezone: ${timeData.timezone}</small>
+          `;
+                } else {
+                    document.getElementById('apiTime').innerHTML = `
+            <div class="error">❌ ${timeData.error}</div>
+            <div>Fallback: ${timeData.fallback}</div>
+          `;
+                }
+
+            } catch (error) {
+                console.error('❌ [RENDERER] Error:', error);
+                document.getElementById('apiTime').innerHTML = `<div class="error">❌ ${error.message}</div>`;
+            }
+        }
+
+        async function refreshWeather() {
+            try {
+                console.log('🌤️ [RENDERER] รีเฟรชสภาพอากาศ...');
+                document.getElementById('weatherInfo').innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+                const weatherData = await window.realtimeAPI.getWeather();
+
+                if (weatherData.success) {
+                    document.getElementById('weatherInfo').innerHTML = `
+            <strong>📍 ${weatherData.location}</strong><br>
+            🌡️ ${weatherData.temperature}<br>
+            ☁️ ${weatherData.description}<br>
+            💧 ความชื้น: ${weatherData.humidity}
+          `;
+                } else {
+                    const fallback = weatherData.fallback;
+                    document.getElementById('weatherInfo').innerHTML = `
+            <div class="error">⚠️ ${weatherData.error}</div>
+            <div><strong>📍 ${fallback.location}</strong><br>
+            🌡️ ${fallback.temperature}<br>
+            ☁️ ${fallback.description}</div>
+          `;
+                }
+
+            } catch (error) {
+                console.error('❌ [RENDERER] Error:', error);
+                document.getElementById('weatherInfo').innerHTML = `<div class="error">❌ ${error.message}</div>`;
+            }
+        }
+
+        async function refreshAgents() {
+                        try {
+                                console.log('👥 [RENDERER] รีเฟรช agents...');
+                                document.getElementById('agentsList').innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+                                const agentData = await window.realtimeAPI.getMockAgents();
+
+                                // Metrics calculation
+                                if (agentData.success) {
+                                        let agentsHTML = '';
+                                        let metricsHTML = '';
+
+                                        // Count by status
+                                        const statusCount = { Available: 0, Busy: 0, Break: 0, Offline: 0 };
+                                        agentData.agents.forEach(agent => {
+                                                const statusClass = `status-${agent.status.toLowerCase()}`;
+                                                agentsHTML += `
+                            <div class="agent-item">
+                                <div>
+                                    <span class="status-indicator ${statusClass}"></span>
+                                    <strong>${agent.name}</strong> (${agent.id})
+                                </div>
+                                <div>
+                                    ${agent.status} | Ext: ${agent.extension}
+                                </div>
+                            </div>
+                        `;
+                                                if (statusCount[agent.status] !== undefined) statusCount[agent.status]++;
+                                        });
+
+                                        // Metrics summary
+                                        metricsHTML += `<div style="margin-bottom:8px;">
+                                                👥 <strong>Agents ทั้งหมด:</strong> ${agentData.count}<br>
+                                                � <strong>Available:</strong> ${statusCount.Available}
+                                                🔴 <strong>Busy:</strong> ${statusCount.Busy}
+                                                🟠 <strong>Break:</strong> ${statusCount.Break}
+                                                ⚫ <strong>Offline:</strong> ${statusCount.Offline}<br>
+                                                <span style="font-size:0.95em;">อัพเดทล่าสุด: ${new Date(agentData.timestamp).toLocaleString('th-TH')}</span>
+                                        </div>`;
+
+                                        // Ratio
+                                        const availableRatio = agentData.count > 0 ? Math.round((statusCount.Available / agentData.count) * 100) : 0;
+                                        metricsHTML += `<div style="margin-top:6px;">
+                                                อัตราส่วนว่างงาน: <strong>${availableRatio}%</strong>
+                                        </div>`;
+
+                                        metricsHTML += `<div style="margin-top:6px; font-size:0.9em;">
+                                                ${agentData.fallback ? '⚠️ ใช้ข้อมูลสำรอง' : '✅ ข้อมูลสดจาก API'}
+                                        </div>`;
+
+                                        document.getElementById('agentsList').innerHTML = agentsHTML;
+                                        document.getElementById('agentMetrics').innerHTML = metricsHTML;
+                                } else {
+                                        document.getElementById('agentsList').innerHTML = `<div class="error">❌ ${agentData.error}</div>`;
+                                        document.getElementById('agentMetrics').innerHTML = `<div class="error">❌ ไม่สามารถโหลดสถิติได้</div>`;
+                                }
+
+                        } catch (error) {
+                                console.error('❌ [RENDERER] Error:', error);
+                                document.getElementById('agentsList').innerHTML = `<div class="error">❌ ${error.message}</div>`;
+                                document.getElementById('agentMetrics').innerHTML = `<div class="error">❌ ไม่สามารถโหลดสถิติได้</div>`;
+                        }
+        }
+
+        // ===== AUTO REFRESH FUNCTIONS =====
+
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            console.log('⏰ [RENDERER] เริ่ม auto refresh...');
+
+            // รีเฟรชทุก 30 วินาที
+            autoRefreshInterval = setInterval(() => {
+                console.log('🔄 [RENDERER] Auto refresh...');
+                refreshAgents();
+                refreshTime();
+            }, 30000);
+
+            showNotification('⏰ เริ่ม Auto Refresh แล้ว (ทุก 30 วินาที)');
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                console.log('⏹️ [RENDERER] หยุด auto refresh');
+                showNotification('⏹️ หยุด Auto Refresh แล้ว');
+            }
+        }
+
+        // ===== UTILITY FUNCTIONS =====
+
+        function updateLiveClock() {
+            const now = new Date();
+            document.getElementById('liveClock').textContent = now.toLocaleString('th-TH');
+        }
+
+        function showNotification(message) {
+            // จำลอง notification (ในที่นี้ใช้ console.log)
+            console.log('🔔 [NOTIFICATION]', message);
+
+            // หรือใช้ alert สำหรับการทดสอบ
+            // alert(message);
+        }
+
+        // ===== INITIALIZATION =====
+
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 [RENDERER] DOM พร้อมแล้ว');
+
+            // เริ่มต้น live clock
+            clockInterval = setInterval(updateLiveClock, 1000);
+            updateLiveClock();
+
+            // โหลดข้อมูลเริ่มต้น
+            refreshTime();
+            refreshWeather();
+            refreshAgents();
+
+            console.log('✅ [RENDERER] Dashboard พร้อมใช้งาน');
+        });
+
+        // Cleanup เมื่อปิด window
+        window.addEventListener('beforeunload', () => {
+            console.log('🔄 [RENDERER] ทำความสะอาด...');
+
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            if (clockInterval) {
+                clearInterval(clockInterval);
+            }
+
+            if (websocket) {
+                websocket.close();
+            }
+        });
+
+        // เพิ่มส่วนนี้ใน <script> ของ index.html
+
+        // ===== SIMULATOR FUNCTIONS =====
+
+        async function startSimulator() {
+            try {
+                console.log('🎭 [RENDERER] เริ่ม simulator...');
+
+                const result = await window.realtimeAPI.startSimulator();
+
+                if (result.success) {
+                    document.getElementById('simulatorStatus').innerHTML = '🟢 Simulator ทำงานอยู่';
+                    showNotification('🎭 Agent Status Simulator เริ่มทำงานแล้ว');
+                }
+
+            } catch (error) {
+                console.error('❌ [RENDERER] Error:', error);
+            }
+        }
+
+        async function stopSimulator() {
+            try {
+                console.log('⏹️ [RENDERER] หยุด simulator...');
+
+                const result = await window.realtimeAPI.stopSimulator();
+
+                if (result.success) {
+                    document.getElementById('simulatorStatus').innerHTML = '🔴 Simulator หยุดแล้ว';
+                    showNotification('⏹️ Agent Status Simulator หยุดแล้ว');
+                }
+
+            } catch (error) {
+                console.error('❌ [RENDERER] Error:', error);
+            }
+        }
+
+        // รับ event การเปลี่ยนสถานะจาก simulator
+        window.realtimeAPI.onAgentStatusChanged((data) => {
+            console.log('📡 [RENDERER] Agent status changed:', data);
+
+            // อัพเดท UI
+            document.getElementById('lastStatusChange').innerHTML = `
+    🔄 <strong>${data.agentId}</strong> → ${data.newStatus}<br>
+    <small>⏰ ${new Date(data.timestamp).toLocaleTimeString('th-TH')}</small>
+  `;
+
+            // แสดง notification
+            showNotification(`🔄 ${data.agentId} เปลี่ยนเป็น ${data.newStatus}`);
+
+            // รีเฟรช agents list
+            refreshAgents();
+        });
+    </script>
+</body>
+
+</html>
