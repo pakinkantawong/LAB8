@@ -1,6 +1,6 @@
 {
   "name": "lab8-3-native-apis",
-  "version": "1.0.0", 
+  "version": "1.0.0",
   "description": "Learning Native APIs for Agent Wallboard",
   "main": "main.js",
   "scripts": {

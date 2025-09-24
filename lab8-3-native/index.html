@@ -98,17 +98,35 @@
       <p>การใช้ Native APIs ของ Operating System</p>
     </div>
 
+    <!-- Agent Status Dashboard Section -->
+    <div class="section">
+      <h3>📊 Agent Status Dashboard</h3>
+      <p>ดูสถานะ agent แบบ real-time และเปลี่ยนสถานะได้</p>
+      <table id="agentTable" style="width:100%;background:rgba(255,255,255,0.15);color:#222;border-radius:8px;overflow:hidden;margin-bottom:10px">
+        <thead style="background:rgba(255,255,255,0.2);color:#333">
+          <tr>
+            <th style="padding:8px">Agent ID</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Change Status</th>
+          </tr>
+        </thead>
+        <tbody id="agentTableBody">
+          <!-- agent rows will be injected here -->
+        </tbody>
+      </table>
+      <button class="button" onclick="exportAgentDashboardCSV()">📤 Export Dashboard CSV</button>
+      <div class="result-box" id="agentDashboardResult">ดูสถานะ agent และ export ได้</div>
+    </div>
+
     <!-- File Operations Section -->
     <div class="section">
       <h3>📁 File Operations</h3>
       <p>เปิดและบันทึกไฟล์ด้วย OS dialogs</p>
-      
       <button class="button" onclick="openFile()">📂 เปิดไฟล์</button>
       <button class="button" onclick="exportAgentData()">📊 Export Agent Data</button>
       <button class="button" onclick="saveCurrentContent()">💾 บันทึกเนื้อหา</button>
-      
       <div class="result-box" id="fileResult">กดปุ่มเพื่อทดสอบ file operations</div>
-      
       <div id="fileContent" class="file-content" style="display: none;"></div>
     </div>
 
@@ -174,6 +192,65 @@
   </div>
 
   <script>
+    // --- Agent Dashboard Data ---
+    let agents = [
+      { id: 'AG001', name: 'Alice Johnson', status: 'Available' },
+      { id: 'AG002', name: 'Bob Smith', status: 'Busy' },
+      { id: 'AG003', name: 'Carol Lee', status: 'Break' }
+    ];
+
+    function renderAgentTable() {
+      const tbody = document.getElementById('agentTableBody');
+      tbody.innerHTML = '';
+      agents.forEach((agent, idx) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td style="padding:8px">${agent.id}</td>
+          <td>${agent.name}</td>
+          <td><span style="font-weight:bold;color:${agent.status==='Available'?'#4CAF50':agent.status==='Busy'?'#FF6B6B':'#FFD700'}">${agent.status}</span></td>
+          <td>
+            <select onchange="changeAgentStatus(${idx}, this.value)">
+              <option value="Available" ${agent.status==='Available'?'selected':''}>🟢 Available</option>
+              <option value="Busy" ${agent.status==='Busy'?'selected':''}>🔴 Busy</option>
+              <option value="Break" ${agent.status==='Break'?'selected':''}>🟡 Break</option>
+            </select>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function changeAgentStatus(idx, newStatus) {
+      const agent = agents[idx];
+      const oldStatus = agent.status;
+      agent.status = newStatus;
+      renderAgentTable();
+      showResult('agentDashboardResult', `เปลี่ยนสถานะ ${agent.name} เป็น ${newStatus}`, 'success');
+      // แจ้งเตือนผ่าน nativeAPI
+      if (window.nativeAPI && window.nativeAPI.notifyAgentEvent) {
+        window.nativeAPI.notifyAgentEvent(agent.name, 'status_change', { newStatus });
+      }
+    }
+
+    function exportAgentDashboardCSV() {
+      const csv = ['Agent ID,Name,Status'];
+      agents.forEach(a => csv.push(`${a.id},${a.name},${a.status}`));
+      const csvContent = csv.join('\n');
+      if (window.nativeAPI && window.nativeAPI.saveFile) {
+        window.nativeAPI.saveFile(csvContent, `agent-dashboard-${Date.now()}.csv`).then(result => {
+          if (result.success) {
+            showResult('agentDashboardResult', `📤 Export CSV สำเร็จ: ${result.fileName}`, 'success');
+          } else {
+            showResult('agentDashboardResult', '❌ Export CSV ไม่สำเร็จ', 'error');
+          }
+        });
+      }
+    }
+
+    // เรียก render เมื่อโหลดหน้า
+    window.addEventListener('DOMContentLoaded', () => {
+      renderAgentTable();
+    });
     console.log('🎨 [RENDERER] Native APIs Demo โหลดแล้ว');
 
     // ตรวจสอบ API
